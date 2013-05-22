@@ -37,8 +37,8 @@ int main(int argc, char** argv) {
     status = mmal_component_create(MMAL_COMPONENT_DEFAULT_CAMERA, &camera);
     if (status != MMAL_SUCCESS) {
         printf("Error: create camera %x\n", status);
+        return -1;
     }
-    printf("  Number of camera output port = %d\n", camera->output_num);
 
     camera_preview_port = camera->output[MMAL_CAMERA_PREVIEW_PORT];
     camera_video_port = camera->output[MMAL_CAMERA_VIDEO_PORT];
@@ -77,6 +77,7 @@ int main(int argc, char** argv) {
 
     if (status != MMAL_SUCCESS) {
         printf("Error: camera viewfinder format couldn't be set\n");
+        return -1;
     }
 
     status = mmal_component_enable(camera);
@@ -84,6 +85,7 @@ int main(int argc, char** argv) {
     status = mmal_component_create(MMAL_COMPONENT_DEFAULT_VIDEO_RENDERER, &preview);
     if (status != MMAL_SUCCESS) {
         printf("Error: unable to create preview (%u)\n", status);
+        return -1;
     }
     preview_input_port = preview->input[0];
 
@@ -98,21 +100,24 @@ int main(int argc, char** argv) {
         status = mmal_port_parameter_set(preview_input_port, &param.hdr);
         if (status != MMAL_SUCCESS && status != MMAL_ENOSYS) {
             printf("Error: unable to set preview port parameters (%u)\n", status);
+            return -1;
         }
     }
 
     status = mmal_connection_create(&camera_preview_connection, camera_preview_port, preview_input_port, MMAL_CONNECTION_FLAG_TUNNELLING | MMAL_CONNECTION_FLAG_ALLOCATION_ON_INPUT);
     if (status != MMAL_SUCCESS) {
         printf("Error: unable to create connection (%u)\n", status);
+        return -1;
     }
 
     status = mmal_connection_enable(camera_preview_connection);
     if (status != MMAL_SUCCESS) {
         printf("Error: unable to enable connection (%u)\n", status);
+        return -1;
     }
     
     while (1);
 
-    return (EXIT_SUCCESS);
+    return 0;
 }
 
