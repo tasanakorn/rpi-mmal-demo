@@ -2,15 +2,15 @@ Simple Raspberry Pi MMAL project
 
 Build
 -----
-1. place  Raspberry Pi userland project /home/pi/src/raspberrypi/userland
-2. run
+1. Place  Raspberry Pi userland project in /home/pi/src/raspberrypi/userland
+2. Run
 
 
     $ mkdir build
     
     $ cd build
     
-    $ cmake
+    $ cmake ..
     
     $ make 
     
