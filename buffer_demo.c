@@ -189,7 +189,7 @@ int main(int argc, char** argv) {
     }
 
     // crate pool form camera video port
-    camera_video_port_pool = mmal_port_pool_create(camera_video_port, camera_video_port->buffer_num, camera_video_port->buffer_size);
+    camera_video_port_pool = (MMAL_POOL_T *)mmal_port_pool_create(camera_video_port, camera_video_port->buffer_num, camera_video_port->buffer_size);
     camera_video_port->userdata = (struct MMAL_PORT_USERDATA_T *) camera_video_port_pool;
 
     status = mmal_port_enable(camera_video_port, video_buffer_callback);
@@ -246,7 +246,7 @@ int main(int argc, char** argv) {
     
     status = mmal_port_format_commit(preview_input_port);
 
-    preview_input_port_pool = mmal_port_pool_create(preview_input_port, preview_input_port->buffer_num, preview_input_port->buffer_size);
+    preview_input_port_pool = (MMAL_POOL_T *)mmal_port_pool_create(preview_input_port, preview_input_port->buffer_num, preview_input_port->buffer_size);
 
     preview_input_port->userdata = (struct MMAL_PORT_USERDATA_T *) preview_input_port_pool;
     status = mmal_port_enable(preview_input_port, preview_buffer_callback);
