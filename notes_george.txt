@@ -1,3 +1,13 @@
+
+First run 
+================
+
+cd
+mkdir git
+cd git
+
+git clone -b develop https://github.com/george-ch/rpi-mmal-demo.git
+
 pi@rasp-cam ~/git/rpi-mmal-demo $ ls -al
 total 96
 drwxr-xr-x 3 pi pi  4096 Jul  9 18:32 .
@@ -28,6 +38,9 @@ pi@rasp-cam ~/git/rpi-mmal-demo/build $ cmake ..
 -- Generating done
 -- Build files have been written to: /home/pi/git/rpi-mmal-demo/build
 
+
+Compliling mmal_video_record
+===============================
 
 pi@rasp-cam ~/git/rpi-mmal-demo/build $ make mmal_video_record
 Scanning dependencies of target mmal_video_record
