@@ -36,6 +36,8 @@ typedef struct {
     MMAL_PORT_T *encoder_output_port;
     MMAL_POOL_T *encoder_output_pool;
     uint8_t *overlay_buffer;
+    uint8_t *overlay_buffer2;
+    int overlay;
     float fps;
 } PORT_USERDATA;
 
@@ -43,6 +45,8 @@ static void camera_video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T
     static int frame_count = 0;
     static struct timespec t1;
     struct timespec t2;
+    uint8_t *local_overlay_buffer;
+
     //fprintf(stderr, "INFO:%s\n", __func__);
     if (frame_count == 0) {
         clock_gettime(CLOCK_MONOTONIC, &t1);
@@ -54,13 +58,26 @@ static void camera_video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T
     MMAL_BUFFER_HEADER_T *new_buffer;
     MMAL_BUFFER_HEADER_T *output_buffer = 0;
     PORT_USERDATA *userdata = (PORT_USERDATA *) port->userdata;
-    
+
     MMAL_POOL_T *pool = userdata->camera_video_port_pool;
 
 
     frame_count++;
 
     output_buffer = mmal_queue_get(userdata->encoder_input_pool->queue);
+
+    //Set pointer to  latest updated/drawn double buffer to local pointer  
+    if (userdata->overlay == 0) {
+        local_overlay_buffer = userdata->overlay_buffer;
+    }
+    else {
+        local_overlay_buffer = userdata->overlay_buffer2;
+    }
+
+    //Try to some colors http://en.wikipedia.org/wiki/YUV
+    int chrominance_offset = userdata->width * userdata->height;
+    int v_offset = chrominance_offset / 4;
+    int chroma = 0;
 
     if (output_buffer) {
         mmal_buffer_header_mem_lock(buffer);
@@ -69,11 +86,18 @@ static void camera_video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T
         int x, y;
         for (x = 0; x < 600; x++) {
             for (y = 0; y < 100; y++) {
-                if (userdata->overlay_buffer[(y * 600 + x) * 4] > 0) {
-                    output_buffer->data[y * userdata->width + x] ^= 0xff;
+                if (local_overlay_buffer[(y * 600 + x) * 4] > 0) {
+                    //copy luma Y
+                    output_buffer->data[y * userdata->width + x ] = 0xdf;
+                    //pointer to chrominance U/V
+                    chroma= y / 2 * userdata->width / 2 + x / 2 + chrominance_offset;
+                    //just guessing colors 
+                    output_buffer->data[chroma] = 0x38 ;
+                    output_buffer->data[chroma+v_offset] = 0xb8 ;
                 }
             }
         }
+
         output_buffer->length = buffer->length;
         mmal_buffer_header_mem_unlock(buffer);
         if (mmal_port_send_buffer(userdata->encoder_input_port, output_buffer) != MMAL_SUCCESS) {
@@ -128,11 +152,11 @@ static void encoder_output_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER
     PORT_USERDATA *userdata = (PORT_USERDATA *) port->userdata;
     MMAL_POOL_T *pool = userdata->encoder_output_pool;
     //fprintf(stderr, "INFO:%s\n", __func__);
-    
+
     mmal_buffer_header_mem_lock(buffer);
     fwrite(buffer->data, 1, buffer->length, stdout);
     mmal_buffer_header_mem_unlock(buffer);
-    
+
     mmal_buffer_header_release(buffer);
     if (port->is_enabled) {
         MMAL_STATUS_T status;
@@ -196,8 +220,8 @@ int setup_camera(PORT_USERDATA *userdata) {
             .max_stills_h = 720,
             .stills_yuv422 = 0,
             .one_shot_stills = 1,
-            .max_preview_video_w = 1280,
-            .max_preview_video_h = 720,
+            .max_preview_video_w = 640,
+            .max_preview_video_h = 480,
             .num_preview_video_frames = 3,
             .stills_capture_circular_buffer_height = 0,
             .fast_preview_resume = 0,
@@ -210,12 +234,12 @@ int setup_camera(PORT_USERDATA *userdata) {
     format = camera_preview_port->format;
     format->encoding = MMAL_ENCODING_OPAQUE;
     format->encoding_variant = MMAL_ENCODING_I420;
-    format->es->video.width = 1280;
-    format->es->video.height = 720;
+    format->es->video.width = 640;
+    format->es->video.height = 480;
     format->es->video.crop.x = 0;
     format->es->video.crop.y = 0;
-    format->es->video.crop.width = 1280;
-    format->es->video.crop.height = 720;
+    format->es->video.crop.width = 640;
+    format->es->video.crop.height = 480;
 
     status = mmal_port_format_commit(camera_preview_port);
 
@@ -230,13 +254,13 @@ int setup_camera(PORT_USERDATA *userdata) {
     format = camera_video_port->format;
     format->encoding = MMAL_ENCODING_I420;
     format->encoding_variant = MMAL_ENCODING_I420;
-    format->es->video.width = 1280;
-    format->es->video.height = 720;
+    format->es->video.width = 640;
+    format->es->video.height = 480;
     format->es->video.crop.x = 0;
     format->es->video.crop.y = 0;
-    format->es->video.crop.width = 1280;
-    format->es->video.crop.height = 720;
-    format->es->video.frame_rate.num = 30;
+    format->es->video.crop.width = 640;
+    format->es->video.crop.height = 480;
+    format->es->video.frame_rate.num = 5;
     format->es->video.frame_rate.den = 1;
 
     camera_video_port->buffer_size = format->es->video.width * format->es->video.height * 12 / 8;
@@ -271,7 +295,7 @@ int setup_camera(PORT_USERDATA *userdata) {
 
 
     fill_port_buffer(userdata->camera_video_port, userdata->camera_video_port_pool);
-    
+
     if (mmal_port_parameter_set_boolean(camera_video_port, MMAL_PARAMETER_CAPTURE, 1) != MMAL_SUCCESS) {
         printf("%s: Failed to start capture\n", __func__);
     }
@@ -303,7 +327,7 @@ int setup_encoder(PORT_USERDATA *userdata) {
     mmal_format_copy(encoder_input_port->format, userdata->camera_video_port->format);
     encoder_input_port->buffer_size = encoder_input_port->buffer_size_recommended;
     encoder_input_port->buffer_num = 2;
-    
+
 
     mmal_format_copy(encoder_output_port->format, encoder_input_port->format);
 
@@ -332,7 +356,7 @@ int setup_encoder(PORT_USERDATA *userdata) {
         encoder_output_port->buffer_num = encoder_output_port->buffer_num_min;
     }
 
-    
+
     // Commit the port changes to the output port    
     status = mmal_port_format_commit(encoder_output_port);
     if (status != MMAL_SUCCESS) {
@@ -356,11 +380,11 @@ int setup_encoder(PORT_USERDATA *userdata) {
     }
     fprintf(stderr, "INFO:Encoder input pool has been created\n");
 
-    
+
     encoder_output_port_pool = (MMAL_POOL_T *) mmal_port_pool_create(encoder_output_port, encoder_output_port->buffer_num, encoder_output_port->buffer_size);
     userdata->encoder_output_pool = encoder_output_port_pool;
     encoder_output_port->userdata = (struct MMAL_PORT_USERDATA_T *) userdata;
-    
+
     status = mmal_port_enable(encoder_output_port, encoder_output_buffer_callback);
     if (status != MMAL_SUCCESS) {
         fprintf(stderr, "Error: unable to enable encoder output port (%u)\n", status);
@@ -369,7 +393,7 @@ int setup_encoder(PORT_USERDATA *userdata) {
     fprintf(stderr, "INFO:Encoder output pool has been created\n");    
 
     fill_port_buffer(encoder_output_port, encoder_output_port_pool);
-    
+
     fprintf(stderr, "INFO:Encoder has been created\n");
     return 0;
 }
@@ -429,13 +453,13 @@ int main(int argc, char** argv) {
     MMAL_STATUS_T status;
 
 
-    cairo_surface_t *surface;
-    cairo_t *context;
+    cairo_surface_t *surface,*surface2;
+    cairo_t *context,*context2;
 
     memset(&userdata, 0, sizeof (PORT_USERDATA));
 
-    userdata.width = 1280;
-    userdata.height = 720;
+    userdata.width = 640;
+    userdata.height = 480;
     userdata.fps = 0.0;
 
     fprintf(stderr, "Running...\n");
@@ -449,6 +473,16 @@ int main(int argc, char** argv) {
     cairo_fill(context);
 
     userdata.overlay_buffer = cairo_image_surface_get_data(surface);
+    userdata.overlay = 1;
+
+    surface2 = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 600, 100);
+    context2 = cairo_create(surface2);
+    cairo_rectangle(context2, 0.0, 0.0, 600, 100);
+    cairo_set_source_rgba(context2, 0.0, 0.0, 0.0, 1.0);
+    cairo_fill(context2);
+
+    userdata.overlay_buffer2 = cairo_image_surface_get_data(surface2);
+
 
 
     if (1 && setup_camera(&userdata) != 0) {
@@ -472,17 +506,46 @@ int main(int argc, char** argv) {
 
 
     char text[256];
+
+    //fake Speed and GPS data
+    float lat = 47.4912;
+    float lon = 8.906;
+    float speed = 20.0;
+
     while (1) {
-        cairo_rectangle(context, 0.0, 0.0, 600, 100);
-        cairo_set_source_rgba(context, 0.0, 0.0, 0.0, 1.0);
-        cairo_fill(context);
-        cairo_move_to(context, 0.0, 0.0);
-        cairo_set_source_rgba(context, 1.0, 1.0, 1.0, 1.0);        
-        cairo_move_to(context, 0.0, 30.0);
-        cairo_set_font_size(context, 25.0);
-        sprintf(text, "%.2fFPS GPS: 0.00000, 0.00000 Speed 0km/h", userdata.fps);
-        cairo_show_text(context, text);
-        usleep(500);
+        //Update Draw to unused buffer that way there is no flickering of the overlay text if the overlay update rate
+        //and video FPS are not the same
+        if (userdata.overlay == 1) { 
+            cairo_rectangle(context, 0.0, 0.0, 600, 100);
+            cairo_set_source_rgba(context, 0.0, 0.0, 0.0, 1.0);
+            cairo_fill(context);
+            cairo_move_to(context, 0.0, 0.0);
+            cairo_set_source_rgba(context, 1.0, 1.0, 1.0, 1.0);        
+            cairo_move_to(context, 0.0, 30.0);
+            cairo_set_font_size(context, 20.0);
+            sprintf(text, "%.2fFPS GPS: %.3f, %.3f Speed %.1fkm/h b0", userdata.fps,lat,lon,speed);
+            cairo_show_text(context, text);
+            userdata.overlay = 0;
+        }
+        else {
+            cairo_rectangle(context2, 0.0, 0.0, 600, 100);
+            cairo_set_source_rgba(context2, 0.0, 0.0, 0.0, 1.0);
+            cairo_fill(context2);
+            cairo_move_to(context2, 0.0, 0.0);
+            cairo_set_source_rgba(context2, 1.0, 1.0, 1.0, 1.0);        
+            cairo_move_to(context2, 0.0, 30.0);
+            cairo_set_font_size(context2, 20.0);
+            sprintf(text, "%.2fFPS GPS: %.3f, %.3f Speed %.1fkm/h b1", userdata.fps,lat,lon,speed);
+            //sprintf(text, "%.2fFPS GPS: 0.00000, 0.00000 Speed 0km/h b1", userdata.fps);
+            cairo_show_text(context2, text);
+            userdata.overlay = 1;
+        }
+
+
+        lat += 0.01;
+        lon += 0.01;
+        speed += 0.1;
+        usleep(990000);
     }
 
     return 0;
