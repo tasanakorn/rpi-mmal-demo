@@ -1,7 +1,5 @@
 Simple Raspberry Pi MMAL project
 
-I forked this repo from tasanakorn/rpi-mmal-demo, so the main credit for this files goes to tasanakorn.
-
 Build
 -----
 0. Install pre-required packages
