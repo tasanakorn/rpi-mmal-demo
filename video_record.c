@@ -21,6 +21,12 @@
 #define MMAL_CAMERA_VIDEO_PORT 1
 #define MMAL_CAMERA_CAPTURE_PORT 2
 
+#define VIDEO_FPS 30 
+#define VIDEO_WIDTH 1280
+#define VIDEO_HEIGHT 720
+
+
+
 typedef struct {
     int width;
     int height;
@@ -220,8 +226,8 @@ int setup_camera(PORT_USERDATA *userdata) {
             .max_stills_h = 720,
             .stills_yuv422 = 0,
             .one_shot_stills = 1,
-            .max_preview_video_w = 640,
-            .max_preview_video_h = 480,
+            .max_preview_video_w = VIDEO_WIDTH,
+            .max_preview_video_h = VIDEO_HEIGHT,
             .num_preview_video_frames = 3,
             .stills_capture_circular_buffer_height = 0,
             .fast_preview_resume = 0,
@@ -234,12 +240,12 @@ int setup_camera(PORT_USERDATA *userdata) {
     format = camera_preview_port->format;
     format->encoding = MMAL_ENCODING_OPAQUE;
     format->encoding_variant = MMAL_ENCODING_I420;
-    format->es->video.width = 640;
-    format->es->video.height = 480;
+    format->es->video.width = VIDEO_WIDTH;
+    format->es->video.height = VIDEO_HEIGHT;
     format->es->video.crop.x = 0;
     format->es->video.crop.y = 0;
-    format->es->video.crop.width = 640;
-    format->es->video.crop.height = 480;
+    format->es->video.crop.width = VIDEO_WIDTH;
+    format->es->video.crop.height = VIDEO_HEIGHT;
 
     status = mmal_port_format_commit(camera_preview_port);
 
@@ -254,13 +260,13 @@ int setup_camera(PORT_USERDATA *userdata) {
     format = camera_video_port->format;
     format->encoding = MMAL_ENCODING_I420;
     format->encoding_variant = MMAL_ENCODING_I420;
-    format->es->video.width = 640;
-    format->es->video.height = 480;
+    format->es->video.width = VIDEO_WIDTH;
+    format->es->video.height = VIDEO_HEIGHT;
     format->es->video.crop.x = 0;
     format->es->video.crop.y = 0;
-    format->es->video.crop.width = 640;
-    format->es->video.crop.height = 480;
-    format->es->video.frame_rate.num = 5;
+    format->es->video.crop.width = VIDEO_WIDTH;
+    format->es->video.crop.height = VIDEO_HEIGHT;
+    format->es->video.frame_rate.num = VIDEO_FPS;
     format->es->video.frame_rate.den = 1;
 
     camera_video_port->buffer_size = format->es->video.width * format->es->video.height * 12 / 8;
@@ -458,10 +464,13 @@ int main(int argc, char** argv) {
 
     memset(&userdata, 0, sizeof (PORT_USERDATA));
 
-    userdata.width = 640;
-    userdata.height = 480;
+    userdata.width = VIDEO_WIDTH;
+    userdata.height = VIDEO_HEIGHT;
     userdata.fps = 0.0;
 
+    fprintf(stderr, "VIDEO_WIDTH : %i\n", userdata.width );
+    fprintf(stderr, "VIDEO_HEIGHT: %i\n", userdata.height );
+    fprintf(stderr, "VIDEO_FPS   : %i\n",  VIDEO_FPS);
     fprintf(stderr, "Running...\n");
 
     bcm_host_init();
@@ -545,7 +554,7 @@ int main(int argc, char** argv) {
         lat += 0.01;
         lon += 0.01;
         speed += 0.1;
-        usleep(990000);
+        usleep(30000);
     }
 
     return 0;
