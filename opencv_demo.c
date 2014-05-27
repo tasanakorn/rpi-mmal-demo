@@ -27,6 +27,10 @@
 #define MMAL_CAMERA_VIDEO_PORT 1
 #define MMAL_CAMERA_CAPTURE_PORT 2
 
+#define VIDEO_FPS 30
+#define VIDEO_WIDTH 1280
+#define VIDEO_HEIGHT 720
+
 typedef struct {
     int video_width;
     int video_height;
@@ -55,11 +59,7 @@ static void video_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffe
     if (frame_count == 0) {
         clock_gettime(CLOCK_MONOTONIC, &t1);
     }
-    frame_count++;
-
-
-
-
+    frame_count++; 
 
     //img = cvLoadImage("test.jpg",CV_LOAD_IMAGE_COLOR);
     mmal_buffer_header_mem_lock(buffer);
@@ -118,12 +118,12 @@ int main(int argc, char** argv) {
 
     bcm_host_init();
 
-    userdata.preview_width = 1280 / 1;
-    userdata.preview_height = 720 / 1;
-    userdata.video_width = 1280 / 1;
-    userdata.video_height = 720 / 1;
-    userdata.opencv_width = 1280 / 4;
-    userdata.opencv_height = 720 / 4;
+    userdata.preview_width = VIDEO_WIDTH;
+    userdata.preview_height = VIDEO_HEIGHT;
+    userdata.video_width = VIDEO_WIDTH;
+    userdata.video_height = VIDEO_HEIGHT;
+    userdata.opencv_width = VIDEO_WIDTH / 4;
+    userdata.opencv_height = VIDEO_HEIGHT / 4;
 
 
     graphics_get_display_size(0, &display_width, &display_height);
@@ -157,12 +157,12 @@ int main(int argc, char** argv) {
     {
         MMAL_PARAMETER_CAMERA_CONFIG_T cam_config = {
             { MMAL_PARAMETER_CAMERA_CONFIG, sizeof (cam_config)},
-            .max_stills_w = 1280,
-            .max_stills_h = 720,
+            .max_stills_w = VIDEO_WIDTH,
+            .max_stills_h = VIDEO_HEIGHT,
             .stills_yuv422 = 0,
             .one_shot_stills = 0,
-            .max_preview_video_w = 1280,
-            .max_preview_video_h = 720,
+            .max_preview_video_w = VIDEO_WIDTH,
+            .max_preview_video_h = VIDEO_HEIGHT,
             .num_preview_video_frames = 2,
             .stills_capture_circular_buffer_height = 0,
             .fast_preview_resume = 1,
@@ -183,7 +183,7 @@ int main(int argc, char** argv) {
     format->es->video.crop.y = 0;
     format->es->video.crop.width = userdata.video_width;
     format->es->video.crop.height = userdata.video_height;
-    format->es->video.frame_rate.num = 30;
+    format->es->video.frame_rate.num = VIDEO_FPS;
     format->es->video.frame_rate.den = 1;
 
     camera_video_port->buffer_size = userdata.preview_width * userdata.preview_height * 12 / 8;
@@ -216,7 +216,7 @@ int main(int argc, char** argv) {
         return -1;
     }
 
-    // crate pool form camera video port
+    // create pool form camera video port
     camera_video_port_pool = (MMAL_POOL_T *) mmal_port_pool_create(camera_video_port, camera_video_port->buffer_num, camera_video_port->buffer_size);
     userdata.camera_video_port_pool = camera_video_port_pool;
     camera_video_port->userdata = (struct MMAL_PORT_USERDATA_T *) &userdata;
@@ -225,8 +225,7 @@ int main(int argc, char** argv) {
     if (status != MMAL_SUCCESS) {
         printf("Error: unable to enable camera video port (%u)\n", status);
         return -1;
-    }
-
+    } 
 
 
     status = mmal_component_enable(camera);
@@ -280,9 +279,7 @@ int main(int argc, char** argv) {
             if (mmal_port_send_buffer(camera_video_port, buffer) != MMAL_SUCCESS) {
                 printf("Unable to send a buffer to encoder output port (%d)\n", q);
             }
-        }
-
-
+        } 
     }
 
     if (mmal_port_parameter_set_boolean(camera_video_port, MMAL_PARAMETER_CAPTURE, 1) != MMAL_SUCCESS) {
